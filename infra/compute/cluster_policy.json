@@ -1,0 +1,38 @@
+{
+  "spark_version": {
+    "type": "fixed",
+    "value": "15.4.x-scala2.12"
+  },
+  "node_type_id": {
+    "type": "fixed",
+    "value": "Standard_DS3_v2"
+  },
+  "num_workers": {
+    "type": "fixed",
+    "value": 0
+  },
+  "spark_conf.spark.databricks.cluster.profile": {
+    "type": "fixed",
+    "value": "singleNode"
+  },
+  "spark_conf.spark.master": {
+    "type": "fixed",
+    "value": "local[*,4]"
+  },
+  "custom_tags.ResourceClass": {
+    "type": "fixed",
+    "value": "SingleNode"
+  },
+  "data_security_mode": {
+    "type": "fixed",
+    "value": "SINGLE_USER"
+  },
+  "azure_attributes.availability": {
+    "type": "fixed",
+    "value": "ON_DEMAND_AZURE"
+  },
+  "dbus_per_hour": {
+    "type": "range",
+    "maxValue": 2
+  }
+}

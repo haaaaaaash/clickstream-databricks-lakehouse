@@ -1,0 +1,46 @@
+# dbt_project.yml: dbt project settings (folders, materialization per layer, test failures)
+# References:
+#   dbt_project.yml:     https://docs.getdbt.com/reference/dbt_project.yml
+#   Materializations:    https://docs.getdbt.com/docs/build/materializations
+#   store_failures:      https://docs.getdbt.com/reference/resource-configs/store_failures
+#   Databricks configs:  https://docs.getdbt.com/reference/resource-configs/databricks-configs
+
+# 1. Project
+name: 'clickstream_lakehouse'
+version: '1.0.0'
+profile: 'clickstream_lakehouse'   # must match the top-level key in profiles.yml
+
+# 2. Project directories
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+analysis-paths: ["analyses"]
+
+# 3. Generated files (removed by `dbt clean`)
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# 4. Materialization per medallion layer (all in the catalog from profiles.yml)
+models:
+  clickstream_lakehouse:
+    staging:                      # src_*: rename + cast the Bronze tables, no object in Databricks
+      +materialized: ephemeral
+    silver:                       # dim_* / fct_*: cleaned, typed, joined
+      +materialized: table
+      +schema: silver
+    gold:                         # mart_*: business-ready aggregates
+      +materialized: table
+      +schema: gold
+
+# 5. Failed test rows are saved for debugging
+data_tests:
+  +store_failures: true
+  +schema: test_failures
+
+# 6. Seeds: small static lookups, stored next to Silver
+seeds:
+  clickstream_lakehouse:
+    +schema: silver

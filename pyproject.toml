@@ -1,0 +1,28 @@
+# pyproject.toml: tool settings for this repo (no package build)
+# pytest:  https://docs.pytest.org/en/stable/reference/customize.html
+# pyright: https://microsoft.github.io/pyright/#/configuration
+# ruff:    https://docs.astral.sh/ruff/configuration/
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# the ingestion modules import each other by file name, the same way Databricks runs them
+pythonpath = ["src/ingestion"]
+addopts = "-v"
+
+[tool.pyright]
+# Pylance/pyright: the ingestion modules import each other by file name (same as pytest's pythonpath)
+extraPaths = ["src/ingestion"]
+
+[tool.ruff]
+# Linter + formatter for all Python files (also run in CI: .github/workflows/ci.yml)
+line-length = 120
+target-version = "py311"
+extend-exclude = ["notebooks", "dbt/dbt_packages", "dbt/target", "airflow/.astro"]
+
+[tool.ruff.lint]
+# E/F: errors + pyflakes, I: import order, B: common bugs (bugbear)
+select = ["E", "F", "I", "B"]
+
+[tool.ruff.lint.isort]
+# local modules imported by file name, so ruff sorts them as first-party
+known-first-party = ["schemas", "ingest_bronze"]

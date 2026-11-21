@@ -1,0 +1,49 @@
+# databricks.yml: Databricks Asset Bundle (jobs as code, deployed with the Databricks CLI)
+# Usage (from the repo root):
+#   databricks bundle validate              check databricks.yml + resources/*.yml
+#   databricks bundle deploy                upload the code and create/update the jobs
+#   databricks bundle run ingest_bronze     run a job and wait for the result
+#   databricks bundle summary               show the deployed jobs and their links
+# No IDs are stored here: the cluster policy and the service principal are looked up by name.
+# References:
+#   Bundles:            https://learn.microsoft.com/azure/databricks/dev-tools/bundles/
+#   Bundle settings:    https://learn.microsoft.com/azure/databricks/dev-tools/bundles/settings
+#   Bundle variables:   https://learn.microsoft.com/azure/databricks/dev-tools/bundles/variables
+#   Bundle permissions: https://learn.microsoft.com/azure/databricks/dev-tools/bundles/permissions
+
+bundle:
+  name: clickstream-lakehouse
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog catalog with the bronze, silver and gold schemas
+    default: clickstream
+  cluster_policy_id:
+    description: Cluster policy for job clusters (created by infra/02_setup_compute.sh)
+    lookup:
+      cluster_policy: clickstream-job-policy
+  sp_client_id:
+    description: Service principal the jobs run as (created by infra/04_setup_service_principal.sh)
+    lookup:
+      service_principal: sp-clickstream
+
+# Who may do what with the deployed files and jobs:
+# - the deploying user (from the CLI login, so no email is hard-coded) manages them
+# - the service principal can read the files and run the jobs (needed by run_as and Airflow)
+permissions:
+  - user_name: ${workspace.current_user.userName}
+    level: CAN_MANAGE
+  - service_principal_name: ${var.sp_client_id}
+    level: CAN_RUN
+
+targets:
+  dev:
+    default: true
+    workspace:
+      profile: clickstream-admin   # Databricks CLI profile from scripts/setup_databricks_connection.sh
+      # Project folder instead of the default /Workspace/Users/<email>/.bundle/...:
+      # no personal email in paths, and the job does not depend on one user's home folder
+      root_path: /Workspace/clickstream-lakehouse/${bundle.target}

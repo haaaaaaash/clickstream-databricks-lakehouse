@@ -1,0 +1,92 @@
+# ci.yml: checks every push and pull request
+#   1. python: ruff (lint + format) and the PySpark unit tests, no cloud access needed
+#   2. dbt:    dbt parse on every run (no cloud needed); dbt build (models + tests on Databricks) only on manual runs
+#              (Actions > CI > Run workflow), because the Azure workspace is deleted after the project to avoid costs;
+#              logged in as the service principal with GitHub secrets (scripts/setup_github_secrets.sh)
+# References:
+#   Workflow syntax:   https://docs.github.com/actions/writing-workflows/workflow-syntax-for-github-actions
+#   Encrypted secrets: https://docs.github.com/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions
+#   setup-python:      https://github.com/actions/setup-python
+#   setup-java:        https://github.com/actions/setup-java
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["docs/**", "**.md"]   # screenshots and text only: nothing to test
+  pull_request:
+    paths-ignore: ["docs/**", "**.md"]
+  workflow_dispatch:                     # "Run workflow" button in the Actions tab
+
+permissions:
+  contents: read                         # least privilege: the workflow only reads the code
+
+concurrency:                             # a newer push cancels the older run of the same branch
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Lint + unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"         # same as the local venv and Databricks serverless (env 2)
+          cache: pip
+
+      - uses: actions/setup-java@v5      # PySpark needs a Java runtime for the local Spark session
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install tools
+        run: pip install ruff pytest "pyspark>=3.5,<3.6"
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Unit tests (PySpark, local)
+        run: pytest
+
+  dbt:
+    name: dbt parse + build
+    needs: python                        # only if lint + tests passed
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DBT_PROJECT_DIR: dbt
+      DBT_PROFILES_DIR: dbt
+      DATABRICKS_CATALOG: clickstream
+      # read by dbt/profiles.yml; stored as repository secrets, never in the code
+      DATABRICKS_WORKSPACE_URL: ${{ secrets.DATABRICKS_WORKSPACE_URL }}
+      DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+      DATABRICKS_SP_CLIENT_ID: ${{ secrets.DATABRICKS_SP_CLIENT_ID }}
+      DATABRICKS_SP_CLIENT_SECRET: ${{ secrets.DATABRICKS_SP_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dbt
+        run: pip install "dbt-core>=1.10,<2.0" "dbt-databricks>=1.10,<2.0"
+
+      - name: dbt deps
+        run: dbt deps
+
+      - name: dbt parse (syntax, refs, YAML; no warehouse needed)
+        run: dbt parse
+
+      - name: dbt build (models + tests on the SQL warehouse)
+        if: github.event_name == 'workflow_dispatch'   # only manual runs build: needs a running Azure Databricks workspace
+        run: dbt build

@@ -1,0 +1,5 @@
+# Shell scripts and SQL must use Linux line endings (LF), even when edited on Windows
+*.sh  text eol=lf
+*.sql text eol=lf
+*.py  text eol=lf
+*.yml text eol=lf

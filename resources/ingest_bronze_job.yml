@@ -1,0 +1,44 @@
+# ingest_bronze_job.yml: job that loads the raw CSVs from the volume into Bronze Delta tables
+# Runs src/ingestion/ingest_bronze.py as the service principal on serverless job compute
+# (no VMs in the Azure subscription, so no VM quota or capacity limits, starts in seconds).
+# References:
+#   Job resource in bundles:   https://learn.microsoft.com/azure/databricks/dev-tools/bundles/resources#job
+#   Python script task:        https://learn.microsoft.com/azure/databricks/jobs/python-script
+#   Serverless jobs:           https://learn.microsoft.com/azure/databricks/jobs/run-serverless-jobs
+#   Serverless environments:   https://learn.microsoft.com/azure/databricks/release-notes/serverless/environment-version/
+#   Run as:                    https://learn.microsoft.com/azure/databricks/dev-tools/bundles/run-as
+
+resources:
+  jobs:
+    ingest_bronze:
+      name: clickstream-ingest-bronze
+      description: Loads the 7 raw CSVs from the volume into <catalog>.bronze Delta tables (full reload)
+      run_as:
+        service_principal_name: ${var.sp_client_id}
+      max_concurrent_runs: 1
+      # Standard serverless mode: a bit slower to start, cheaper than PERFORMANCE_OPTIMIZED
+      performance_target: STANDARD
+      tags:
+        project: clickstream
+
+      # Serverless: the task has no cluster (no job_cluster_key / new_cluster / existing_cluster_id),
+      # only an environment, so Databricks runs it on serverless job compute.
+      # Environment version 2 = Python 3.11 (same as the local venv)
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "2"
+
+      tasks:
+        - task_key: ingest_bronze
+          environment_key: default
+          max_retries: 1
+          spark_python_task:
+            python_file: ../src/ingestion/ingest_bronze.py
+            # --src-dir: folder of the deployed script, so it can import schemas.py
+            # (serverless runs the file via exec(), where __file__ is not defined)
+            parameters:
+              - "--catalog"
+              - "${var.catalog}"
+              - "--src-dir"
+              - "${workspace.file_path}/src/ingestion"

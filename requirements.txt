@@ -1,0 +1,20 @@
+# clickstream-databricks-lakehouse: Python 3.11
+# install: uv pip install -r requirements.txt   (exact versions: requirements.lock)
+# Not in here: Azure CLI + Databricks CLI (system tools, see scripts/setup_env.sh),
+#              Airflow (runs in Docker via the Astro CLI, has its own requirements in airflow/)
+
+# Transformation
+dbt-core>=1.10,<2.0
+dbt-databricks>=1.10,<2.0
+
+# PySpark: local unit tests only (jobs run on Databricks Runtime 15.4 LTS: Spark 3.5, Python 3.11)
+pyspark>=3.5,<3.6
+
+# Tests + linting (also used by GitHub Actions)
+pytest
+ruff
+
+# EDA (notebooks/)
+pandas
+matplotlib
+jupyterlab

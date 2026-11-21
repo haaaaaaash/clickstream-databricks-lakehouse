@@ -1,0 +1,31 @@
+# _sources.yml: the Bronze Delta tables written by the PySpark job (Ch. 5) as dbt sources
+# References:
+#   Sources:   https://docs.getdbt.com/docs/build/sources
+#   Freshness: https://docs.getdbt.com/reference/resource-properties/freshness
+version: 2
+
+sources:
+  - name: bronze
+    description: "Raw e-commerce clickstream data, loaded from CSV by src/ingestion/ingest_bronze.py. Source format kept as-is."
+    database: "{{ env_var('DATABRICKS_CATALOG') }}"   # Unity Catalog catalog
+    schema: bronze
+    config:
+      # _ingested_at is added by the ingestion job; `dbt source freshness` warns if Bronze is stale
+      loaded_at_field: _ingested_at
+      freshness:
+        warn_after: {count: 7, period: day}
+    tables:
+      - name: customers
+        description: "One row per registered customer."
+      - name: products
+        description: "Product catalog with price, cost and margin."
+      - name: sessions
+        description: "One row per website/app session."
+      - name: events
+        description: "Clickstream events: page_view, add_to_cart, checkout, purchase."
+      - name: orders
+        description: "One row per order, with totals and discount."
+      - name: order_items
+        description: "Order lines. (order_id, product_id) can repeat (EDA finding #4)."
+      - name: reviews
+        description: "Product reviews per order."
